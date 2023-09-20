@@ -1,0 +1,117 @@
+# Biophysics - HW1
+# Daniel Huff
+# Fall 2023
+
+import numpy as np
+from numpy import random as rng
+import matplotlib.pyplot as plt
+
+# Problem 2.a)
+# We are going to simulate N coin tosses and track the longest streak and its statistics
+# I am going to make this a function so I can easily repeat simulations for different inputs.
+
+
+def simulate(n, sims):
+
+    output = np.zeros(sims)
+
+    for i in range(sims):
+
+        streak = 1              # Stores the current streak (so always at least 1)
+        maxStreak = 0           # Stores the biggest streak in each simulation
+        last = 0                # Stores what we last flipped so we can compare and find streaks. Start at 0 so
+                                # we ensure the first time is not counted as an addition to "streak"
+
+        for j in range(n):
+
+            flip = rng.random()     # Flip a coin
+            if flip < 0.5:
+                result = 1
+            else:
+                result = 2          # and assign a value based on the result
+
+            if result == last:      # If we have a repeat, that adds to our current streak
+                streak += 1
+            else:                   # If not, reset the current streak
+                streak = 1
+
+            last = result           # Store what we flipped for next time
+
+            if streak > maxStreak:  # Store the biggest streak we get in n flips
+                maxStreak = streak
+
+        output[i] = maxStreak       # and store this longest run for each simulation
+
+    return output
+
+
+# Now to define a function that will find the average and variance quickly for us
+def statMe(data):
+
+    l = len(data)
+    variance = 0
+    avg = np.sum(data) / l
+
+    for i in range(l):
+        variance += ((data[i] - avg) * (data[i] - avg))
+
+    variance /= l
+
+    return avg, variance
+
+
+# Next we generate some data for part a)
+trial = simulate(4, 1000)
+answer = statMe(trial)
+print('For N = 4, the avg. streak is ' + str(answer[0]) + ' with variance ' + str(answer[1]))
+print('')
+
+
+# Problem 2.b)
+# We can quickly use our functions to upscale this procedure.
+
+results = np.zeros((9,2))
+results[0] = answer                                 # I am going to include n = 4 just for comparison
+results[1] = statMe(simulate(8, 1000))
+results[2] = statMe(simulate(16, 1000))
+results[3] = statMe(simulate(32, 1000))
+results[4] = statMe(simulate(64, 1000))
+results[5] = statMe(simulate(128, 1000))
+results[6] = statMe(simulate(256, 1000))
+results[7] = statMe(simulate(512, 1000))
+results[8] = statMe(simulate(1024, 1000))
+
+for i in range(len(results)):                       # And print a little table of the results
+    nn = (2 ** (i + 2))
+    print('For N = ' + str(nn) + ':  \t Avg = ' + str(results[i][0]) + ',\t Var = ' + str(results[i][1]))
+
+
+# Problem 2.c
+# Now we just need to plot our data with some error calculation and predicted values for comparison
+
+xvals = [4, 8, 16, 32, 64, 128, 256, 512, 1024]         # Array of our N values for the x-axis
+yvals = np.zeros(9)                                     # Array to hold our averages
+se = np.zeros(9)                                        # Array to hold our standard errors
+
+for i in range(len(yvals)):                             # Populate our average array
+    yvals[i] = results[i][0]
+
+for j in range(len(se)):                                # Populate our error bar array with SE
+    val = np.sqrt(results[j][1]/(2 ** (j+2)))           # SE = sqrt(var/N)
+    se[j] = val
+
+xprediction = np.array(range(1, 1024))                  # Points for the prediction
+yprediction = np.log2(xprediction)                      # Values for the prediction
+
+plt.plot(xprediction, yprediction, color='g', label='Predicted Value')
+plt.errorbar(xvals, yvals, yerr=se, fmt='.', ecolor='r', barsabove=1, label='Simulated Value')
+plt.xlabel('N')
+plt.ylabel('Longest Run')
+plt.title(' Average Longest Run of Heads or Tails per N Coin Flips')
+plt.legend()
+plt.show()
+
+# This prediction to me is a good fit but not a great fit. We can see the simulated behavior deviates from the
+# prediction for higher values of N. This is concerning because for higher values of N we can be more certain
+# in our simulation's results as standard error scales inversely with the square root of N. An adjustment is needed,
+# something like raising the prediction function linearly or stretching it upwards.

@@ -1,0 +1,180 @@
+# Biophysics - HW1
+# Daniel Huff
+# Fall 2023
+
+import numpy as np
+from numpy import random as rng
+import matplotlib.pyplot as plt
+
+# Problem 3.a)
+# First we will import the data and then plot it out.
+
+f = np.load('/home/dhuff/Downloads/londonIncidents.npz')     # Loading the file given
+
+data = f['all']                     # Putting the data into a list
+l = len(data)
+xdata = np.zeros(l)
+ydata = np.zeros(l)
+
+for i in range(l):                  # Then separating the list into an x and y list
+    xdata[i] = data[i][0]
+    ydata[i] = data[i][1]
+
+plt.figure()                                    # A plot of just the points in space
+plt.scatter(xdata, ydata, color='red')
+plt.xlabel('X - Coord.')
+plt.ylabel('Y - Coord.')
+plt.title('Coordinates of Homes with Illness')
+plt.show()
+
+
+# Problem 3.b)
+# Next we will add dividing lines to the plot. First we should check the extrema of the data
+# so that these lines contain all points.
+
+maxx = 0
+maxy = 0
+for a in range(l):
+    if abs(xdata[a]) > abs(maxx):
+        maxx = xdata[a]
+
+for b in range(l):
+    if abs(ydata[b]) > abs(maxy):
+        maxy = ydata[b]
+
+# We will do a 15 by 15 set of lines
+
+xlines = np.zeros(15)
+ylines = np.zeros(15)
+
+for ii in range(15):
+    xlines[ii] += (ii + 1) * ((maxx+1)/15)          # Here we make arrays of the positions of the lines
+    ylines[ii] += (ii + 1) * ((maxy-0.5)/15)        # I use the maxes + 1 and + 0.5 to ensure no points are on a line
+
+plt.figure()
+plt.vlines(xlines, 0, (maxy-0.5))
+plt.hlines(ylines, 0, (maxx+1))
+plt.scatter(xdata, ydata, color='red', s=2)
+plt.xlabel('X - Coord.')
+plt.ylabel('Y - Coord.')
+plt.title('Coordinates of Homes with Illness - Binned')
+plt.show()
+
+# 100 bins would not be enough relative to the data; 400 would be too many relative to the data. This middle ground
+# choice of 225 should strike a good balance so that each bin is a good sample of the data.
+
+# Problem 3.c)
+# Now we want to get the frequencies of the number of points per cell. This could be done by hand, but also is
+# very doable in code (which is how I will do it).
+# To do this, I will number the bins 0-224, starting in the top left and going across and down. Then I will
+# count the number in each bin and store this in an array called bpoints.
+
+bpoints = np.zeros(225)
+xfactor = (maxx+1)/15
+yfactor = (maxy-0.5)/15
+
+for jj in range(l):
+    px = xdata[jj]                              # First we select a data point
+    py = ydata[jj]
+
+    xcoord = np.trunc(px/xfactor)              # Then this formula give us its bin's coordinates
+    ycoord = np.trunc(py/yfactor)
+    binnum = (xcoord * 15) + ycoord            # This formula turns the coordinates into a bin number
+    bpoints[int(binnum)] += 1                  # Then we increase the number of points in that bin by 1
+
+freq = np.zeros(20)                            # I can safely cap the max frequency at 20 from observation
+
+for aa in range(len(bpoints)):                  # Finally we count the frequency of each number of points
+    num = bpoints[aa]
+    freq[int(num)] += 1
+
+print('Frequency of Number of Points per Cell: ' + str(freq))
+
+# Problem 3.d)
+# If the points were truly uniformly distributed, we expect every bin to have roughly the same number of points in
+# it, with some variation. This distribution should be normal since the CLT applies, with the center at (#points/#bins)
+
+
+def normal(x, avg, sigma):                                          # This function will plot a Gaussian curve
+    amp = 1 / (np.sqrt(2 * np.pi * sigma * sigma))
+    expo = (-1) * (x - avg) * (x - avg) / (2 * sigma * sigma)
+    return amp * np.exp(expo)
+
+
+testx = np.zeros(2000)                              # Here we make some points to plot our Gaussian over
+for m in range(2000):
+    testx[m] = m/100
+
+mean = l/225                                        # Come up with the mean and sigma for it
+sqsum = 0
+for ind in range(225):
+    sqsum += ((bpoints[ind] - mean) ** 2)
+sig = np.sqrt(sqsum / 225)
+
+testy = normal(testx, mean, sig)              # When we generate the Gaussian, we use the sigma of the actual data
+
+xpts = np.zeros(20)                 # Then we generate the distribution of the data, first x points
+for xyz in range(20):
+    xpts[xyz] = xyz
+
+
+plt.figure()                            # Finally we will plot the Gaussian on top of our data distribution
+plt.plot(testx, testy, color='black', label='Normal Distribution')
+plt.scatter(xpts, freq/225, label='Data Distribution')
+plt.title('Probability Distributions')
+plt.xlabel('Number of Points in a Bin')
+plt.ylabel('Probability')
+plt.legend()
+plt.show()
+
+# I do not feel this is a good fit. It is obviously close, but I think the peak of our data distribution is further
+# left and higher than that of a normal distribution with the same mean and standard deviation. This suggests there
+# are many more cells with below-average points (most areas are "healthy" communities with random illness),
+# while the few spikes on the right tail suggest a small number of cells with above-average points
+# (a scattering of "sick" communities with a potential source of illness nearby).
+
+# Problem 3.e)
+# Now we will plot the probability distrubtion of a truly uniform map against our distribution from the data.
+
+unidata = np.empty((l, 2))
+
+for bb in range(l):                     # First we generate random points in the same space as our data
+    xx = rng.random() * maxx
+    yy = rng.random() * maxy
+    unidata[bb] = (xx, yy)
+
+ubpoints = np.zeros(225)
+
+for cc in range(l):                             # Now we need the frequencies
+    ux = unidata[cc][0]                         # So we again we select a data point
+    uy = unidata[cc][1]
+
+    xcoord = np.trunc(ux/xfactor)              # Then this formula give the bin coordinates
+    ycoord = np.trunc(uy/yfactor)
+    ubinnum = (xcoord * 15) + ycoord            # This formula turns the coordinates into a bin number
+    ubpoints[int(ubinnum)] += 1
+
+ufreq = np.zeros(20)                            # I can again safely cap the frequency at 20 from observation
+
+for abc in range(len(ubpoints)):                # Finally we count the frequency of each number of points
+    num = ubpoints[abc]
+    ufreq[int(num)] += 1
+
+plt.figure()
+plt.plot(xpts, ufreq, label='Uniform Simulation Distribution')
+plt.plot(xpts, freq, color='r', label='Data Distribution')
+plt.title('Comparison of Frequency Distributions for Uniform Simulation and Data')
+plt.xlabel('Number of Points per Bin')
+plt.ylabel('Frequency')
+plt.legend()
+plt.show()
+
+plt.figure()
+plt.plot(xpts, ufreq/225, label='Uniform Simulation Distribution')
+plt.plot(xpts, freq/225, color='r', label='Data Distribution')
+plt.plot(testx, testy, color='black', label='Normal Distribution')
+plt.title('Comparison of Probability Distributions for Uniform Simulation and Data')
+plt.xlabel('Number of Points per Bin')
+plt.ylabel('Probability')
+plt.legend()
+plt.show()
